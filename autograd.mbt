@@ -12,6 +12,7 @@ pub enum Op {
   ReLU(Tensor)
   Sigmoid(Tensor)
   Tanh(Tensor)
+  MSELoss(Tensor, Tensor)
 }
 
 ///| Helper to get the inputs of an operation.
@@ -27,6 +28,7 @@ fn get_op_inputs(op : Op) -> Array[Tensor] {
     ReLU(a) => [a]
     Sigmoid(a) => [a]
     Tanh(a) => [a]
+    MSELoss(a, b) => [a, b]
   }
 }
 
@@ -289,6 +291,26 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
           grad_a[i] = grad[i] * (1.0 - th * th)
         }
         accumulate_grad(a, grad_a, out_shape)
+      }
+    }
+    MSELoss(pred, target) => {
+      let size = pred.data.length()
+      let factor = 2.0 / size.to_double() * grad[0]
+      if pred.requires_grad {
+        let grad_pred = Array::make(size, 0.0)
+        let mut i = 0
+        for ; i < size; i = i + 1 {
+          grad_pred[i] = (pred.data[i] - target.data[i]) * factor
+        }
+        accumulate_grad(pred, grad_pred, pred.shape)
+      }
+      if target.requires_grad {
+        let grad_target = Array::make(size, 0.0)
+        let mut i = 0
+        for ; i < size; i = i + 1 {
+          grad_target[i] = -(pred.data[i] - target.data[i]) * factor
+        }
+        accumulate_grad(target, grad_target, target.shape)
       }
     }
   }
