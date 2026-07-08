@@ -140,3 +140,89 @@ pub fn from_array(
 ) -> Tensor {
   Tensor::new(data, shape, requires_grad~)
 }
+
+///| Get element at specified indices.
+pub fn Tensor::op_get(self : Tensor, indices : Array[Int]) -> Double {
+  let mut flat_idx = 0
+  let len = indices.length()
+  let mut i = 0
+  for ; i < len; i = i + 1 {
+    flat_idx = flat_idx + indices[i] * self.strides[i]
+  }
+  self.data[flat_idx]
+}
+
+///| Set element at specified indices.
+pub fn Tensor::op_set(self : Tensor, indices : Array[Int], val : Double) -> Unit {
+  let mut flat_idx = 0
+  let len = indices.length()
+  let mut i = 0
+  for ; i < len; i = i + 1 {
+    flat_idx = flat_idx + indices[i] * self.strides[i]
+  }
+  self.data[flat_idx] = val
+}
+
+fn format_tensor_data(
+  data : Array[Double],
+  shape : Array[Int],
+  strides : Array[Int],
+  dim : Int,
+  offset : Int
+) -> String {
+  if dim == shape.length() {
+    return data[offset].to_string()
+  }
+  if dim == shape.length() - 1 {
+    let mut s = "["
+    let size = shape[dim]
+    let stride = strides[dim]
+    let mut i = 0
+    for ; i < size; i = i + 1 {
+      if i > 0 {
+        s = s + ", "
+      }
+      s = s + data[offset + i * stride].to_string()
+    }
+    s = s + "]"
+    return s
+  }
+  let mut s = "["
+  let size = shape[dim]
+  let stride = strides[dim]
+  let mut i = 0
+  for ; i < size; i = i + 1 {
+    if i > 0 {
+      s = s + ",\n"
+      let mut indent = 0
+      for ; indent <= dim; indent = indent + 1 {
+        s = s + " "
+      }
+    }
+    s = s + format_tensor_data(data, shape, strides, dim + 1, offset + i * stride)
+  }
+  s = s + "]"
+  s
+}
+
+///| Format the Tensor as a string.
+pub fn to_string(self : Tensor) -> String {
+  let shape_len = self.shape.length()
+  let data_str = if shape_len == 0 {
+    self.data[0].to_string()
+  } else {
+    format_tensor_data(self.data, self.shape, self.strides, 0, 0)
+  }
+  let grad_info = if self.requires_grad {
+    ", requires_grad=true"
+  } else {
+    ""
+  }
+  "tensor(" + data_str + grad_info + ")"
+}
+
+///| Implementation of Show trait for Tensor.
+pub fn output(self : Tensor, logger : &Logger) -> Unit {
+  logger.write_string(self.to_string())
+}
+
