@@ -1,0 +1,7 @@
+import {
+  "lyjttio/moongrad" @lib
+}
+
+options(
+  "is-main": true,
+)
