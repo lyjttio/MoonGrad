@@ -1,6 +1,7 @@
 // autograd.mbt
 
-///| Enum representing operators in the computation graph.
+///|
+/// Enum representing operators in the computation graph.
 pub enum Op {
   Add(Tensor, Tensor)
   Sub(Tensor, Tensor)
@@ -15,7 +16,8 @@ pub enum Op {
   MSELoss(Tensor, Tensor)
 }
 
-///| Helper to get the inputs of an operation.
+///|
+/// Helper to get the inputs of an operation.
 fn get_op_inputs(op : Op) -> Array[Tensor] {
   match op {
     Add(a, b) => [a, b]
@@ -32,11 +34,12 @@ fn get_op_inputs(op : Op) -> Array[Tensor] {
   }
 }
 
-///| Performs topological sort starting from the root tensor.
+///|
+/// Performs topological sort starting from the root tensor.
 fn topological_sort(root : Tensor) -> Array[Tensor] {
-  let visited = Array::new()
-  let result = Array::new()
-  
+  let visited : Array[Tensor] = Array::new()
+  let result : Array[Tensor] = Array::new()
+
   fn visit(node : Tensor) {
     let mut found = false
     for v in visited {
@@ -45,7 +48,7 @@ fn topological_sort(root : Tensor) -> Array[Tensor] {
         break
       }
     }
-    if not(found) {
+    if !found {
       visited.push(node)
       match node.creator {
         Some(op) => {
@@ -59,16 +62,17 @@ fn topological_sort(root : Tensor) -> Array[Tensor] {
       result.push(node)
     }
   }
-  
+
   visit(root)
   result
 }
 
-///| Sum-reduce gradient delta along broadcasted dimensions.
+///|
+/// Sum-reduce gradient delta along broadcasted dimensions.
 fn reduce_grad(
   delta : Array[Double],
   out_shape : Array[Int],
-  target_shape : Array[Int]
+  target_shape : Array[Int],
 ) -> Array[Double] {
   let target_len = target_shape.length()
   let mut target_size = 1
@@ -78,23 +82,29 @@ fn reduce_grad(
   if target_len == 0 {
     target_size = 1
   }
-  
+
   let target_grad = Array::make(target_size, 0.0)
   let out_strides = shape_to_strides(out_shape)
   let target_strides = shape_to_strides(target_shape)
-  
+
   let size = delta.length()
-  let mut i = 0
-  for ; i < size; i = i + 1 {
-    let idx = broadcast_index(i, out_shape, out_strides, target_shape, target_strides)
+  for i in 0..<size {
+    let idx = broadcast_index(
+      i, out_shape, out_strides, target_shape, target_strides,
+    )
     target_grad[idx] = target_grad[idx] + delta[i]
   }
   target_grad
 }
 
-///| Accumulate gradient delta into target Tensor.
-pub fn accumulate_grad(t : Tensor, delta : Array[Double], out_shape : Array[Int]) -> Unit {
-  if not(t.requires_grad) {
+///|
+/// Accumulate gradient delta into target Tensor.
+pub fn accumulate_grad(
+  t : Tensor,
+  delta : Array[Double],
+  out_shape : Array[Int],
+) -> Unit {
+  if !t.requires_grad {
     return
   }
   let reduced = if t.shape != out_shape {
@@ -102,27 +112,29 @@ pub fn accumulate_grad(t : Tensor, delta : Array[Double], out_shape : Array[Int]
   } else {
     delta
   }
-  
+
   match t.grad {
     None => {
       let g = Array::make(t.data.length(), 0.0)
-      let mut i = 0
-      for ; i < reduced.length(); i = i + 1 {
+      for i in 0..<reduced.length() {
         g[i] = reduced[i]
       }
       t.grad = Some(g)
     }
-    Some(g) => {
-      let mut i = 0
-      for ; i < reduced.length(); i = i + 1 {
+    Some(g) =>
+      for i in 0..<reduced.length() {
         g[i] = g[i] + reduced[i]
       }
-    }
   }
 }
 
-///| Propagate the gradient through an operation.
-fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> Unit {
+///|
+/// Propagate the gradient through an operation.
+fn propagate_op_grad(
+  op : Op,
+  grad : Array[Double],
+  out_shape : Array[Int],
+) -> Unit {
   match op {
     Add(a, b) => {
       accumulate_grad(a, grad, out_shape)
@@ -131,8 +143,7 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
     Sub(a, b) => {
       accumulate_grad(a, grad, out_shape)
       let neg_grad = Array::make(grad.length(), 0.0)
-      let mut i = 0
-      for ; i < grad.length(); i = i + 1 {
+      for i in 0..<grad.length() {
         neg_grad[i] = -grad[i]
       }
       accumulate_grad(b, neg_grad, out_shape)
@@ -141,18 +152,28 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
       let out_strides = shape_to_strides(out_shape)
       if a.requires_grad {
         let grad_a = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
-          let idx_b = broadcast_index(i, out_shape, out_strides, b.shape, b.strides)
+        for i in 0..<grad.length() {
+          let idx_b = broadcast_index(
+            i,
+            out_shape,
+            out_strides,
+            b.shape,
+            b.strides,
+          )
           grad_a[i] = grad[i] * b.data[idx_b]
         }
         accumulate_grad(a, grad_a, out_shape)
       }
       if b.requires_grad {
         let grad_b = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
-          let idx_a = broadcast_index(i, out_shape, out_strides, a.shape, a.strides)
+        for i in 0..<grad.length() {
+          let idx_a = broadcast_index(
+            i,
+            out_shape,
+            out_strides,
+            a.shape,
+            a.strides,
+          )
           grad_b[i] = grad[i] * a.data[idx_a]
         }
         accumulate_grad(b, grad_b, out_shape)
@@ -162,19 +183,35 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
       let out_strides = shape_to_strides(out_shape)
       if a.requires_grad {
         let grad_a = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
-          let idx_b = broadcast_index(i, out_shape, out_strides, b.shape, b.strides)
+        for i in 0..<grad.length() {
+          let idx_b = broadcast_index(
+            i,
+            out_shape,
+            out_strides,
+            b.shape,
+            b.strides,
+          )
           grad_a[i] = grad[i] / b.data[idx_b]
         }
         accumulate_grad(a, grad_a, out_shape)
       }
       if b.requires_grad {
         let grad_b = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
-          let idx_a = broadcast_index(i, out_shape, out_strides, a.shape, a.strides)
-          let idx_b = broadcast_index(i, out_shape, out_strides, b.shape, b.strides)
+        for i in 0..<grad.length() {
+          let idx_a = broadcast_index(
+            i,
+            out_shape,
+            out_strides,
+            a.shape,
+            a.strides,
+          )
+          let idx_b = broadcast_index(
+            i,
+            out_shape,
+            out_strides,
+            b.shape,
+            b.strides,
+          )
           let b_val = b.data[idx_b]
           grad_b[i] = -grad[i] * a.data[idx_a] / (b_val * b_val)
         }
@@ -187,13 +224,10 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
       let n = b.shape[1]
       if a.requires_grad {
         let grad_a = Array::make(m * k, 0.0)
-        let mut r = 0
-        for ; r < m; r = r + 1 {
-          let mut c = 0
-          for ; c < k; c = c + 1 {
+        for r in 0..<m {
+          for c in 0..<k {
             let mut sum = 0.0
-            let mut j = 0
-            for ; j < n; j = j + 1 {
+            for j in 0..<n {
               let g_val = grad[r * n + j]
               let b_val = b.data[c * b.strides[0] + j * b.strides[1]]
               sum = sum + g_val * b_val
@@ -205,13 +239,10 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
       }
       if b.requires_grad {
         let grad_b = Array::make(k * n, 0.0)
-        let mut r = 0
-        for ; r < k; r = r + 1 {
-          let mut c = 0
-          for ; c < n; c = c + 1 {
+        for r in 0..<k {
+          for c in 0..<n {
             let mut sum = 0.0
-            let mut j = 0
-            for ; j < m; j = j + 1 {
+            for j in 0..<m {
               let a_val = a.data[j * a.strides[0] + r * a.strides[1]]
               let g_val = grad[j * n + c]
               sum = sum + a_val * g_val
@@ -222,68 +253,60 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
         accumulate_grad(b, grad_b, b.shape)
       }
     }
-    Reshape(a, _) => {
-      accumulate_grad(a, grad, a.shape)
-    }
-    Transpose(a, dim0, dim1) => {
+    Reshape(a, _) => accumulate_grad(a, grad, a.shape)
+    Transpose(a, dim0, dim1) =>
       if a.requires_grad {
         let size = grad.length()
         let grad_a = Array::make(size, 0.0)
         let len = a.shape.length()
         let a_strides = a.strides
         let new_strides = shape_to_strides(out_shape)
-        
-        let mut i = 0
-        for ; i < size; i = i + 1 {
+
+        for i in 0..<size {
           let mut remaining = i
           let coords = Array::make(len, 0)
-          let mut d = 0
-          for ; d < len; d = d + 1 {
+          for d in 0..<len {
             coords[d] = remaining / a_strides[d]
             remaining = remaining % a_strides[d]
           }
-          
+
           let mut trans_idx = 0
-          let mut k = 0
-          for ; k < len; k = k + 1 {
-            let coord = if k == dim0 { coords[dim1] }
-                        else if k == dim1 { coords[dim0] }
-                        else { coords[k] }
+          for k in 0..<len {
+            let coord = if k == dim0 {
+              coords[dim1]
+            } else if k == dim1 {
+              coords[dim0]
+            } else {
+              coords[k]
+            }
             trans_idx = trans_idx + coord * new_strides[k]
           }
           grad_a[i] = grad[trans_idx]
         }
         accumulate_grad(a, grad_a, a.shape)
       }
-    }
-    ReLU(a) => {
+    ReLU(a) =>
       if a.requires_grad {
         let grad_a = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
+        for i in 0..<grad.length() {
           grad_a[i] = if a.data[i] > 0.0 { grad[i] } else { 0.0 }
         }
         accumulate_grad(a, grad_a, out_shape)
       }
-    }
-    Sigmoid(a) => {
+    Sigmoid(a) =>
       if a.requires_grad {
         let grad_a = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
-          // s = 1 / (1 + exp(-x))
+        for i in 0..<grad.length() {
           let x = a.data[i]
           let s = 1.0 / (1.0 + exp(-x))
           grad_a[i] = grad[i] * s * (1.0 - s)
         }
         accumulate_grad(a, grad_a, out_shape)
       }
-    }
-    Tanh(a) => {
+    Tanh(a) =>
       if a.requires_grad {
         let grad_a = Array::make(grad.length(), 0.0)
-        let mut i = 0
-        for ; i < grad.length(); i = i + 1 {
+        for i in 0..<grad.length() {
           let x = a.data[i]
           let ex = exp(x)
           let enx = exp(-x)
@@ -292,22 +315,19 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
         }
         accumulate_grad(a, grad_a, out_shape)
       }
-    }
     MSELoss(pred, target) => {
       let size = pred.data.length()
       let factor = 2.0 / size.to_double() * grad[0]
       if pred.requires_grad {
         let grad_pred = Array::make(size, 0.0)
-        let mut i = 0
-        for ; i < size; i = i + 1 {
+        for i in 0..<size {
           grad_pred[i] = (pred.data[i] - target.data[i]) * factor
         }
         accumulate_grad(pred, grad_pred, pred.shape)
       }
       if target.requires_grad {
         let grad_target = Array::make(size, 0.0)
-        let mut i = 0
-        for ; i < size; i = i + 1 {
+        for i in 0..<size {
           grad_target[i] = -(pred.data[i] - target.data[i]) * factor
         }
         accumulate_grad(target, grad_target, target.shape)
@@ -316,26 +336,25 @@ fn propagate_op_grad(op : Op, grad : Array[Double], out_shape : Array[Int]) -> U
   }
 }
 
-///| Runs backpropagation starting from this Tensor.
+///|
+/// Runs backpropagation starting from this Tensor.
 pub fn Tensor::backward(self : Tensor) -> Unit {
-  // Initialize gradient of root if not set
-  if self.grad.is_empty() {
+  if self.grad is None {
     self.grad = Some(Array::make(self.data.length(), 1.0))
   }
-  
+
   let sorted = topological_sort(self)
   let len = sorted.length()
-  let mut i = len - 1
-  for ; i >= 0; i = i - 1 {
-    let t = sorted[i]
+  for i in 0..<len {
+    let idx = len - 1 - i
+    let t = sorted[idx]
     match t.creator {
       None => ()
-      Some(op) => {
+      Some(op) =>
         match t.grad {
           None => ()
           Some(g) => propagate_op_grad(op, g, t.shape)
         }
-      }
     }
   }
 }

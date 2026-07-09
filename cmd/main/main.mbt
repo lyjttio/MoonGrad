@@ -1,5 +1,6 @@
 // cmd/main/main.mbt
 
+///|
 fn main {
   println("==================================================")
   println("     MoonGrad: Pure MoonBit Autograd Demo         ")
@@ -7,21 +8,9 @@ fn main {
   println("Training a Multi-Layer Perceptron to solve XOR...")
 
   // XOR inputs (4 samples, 2 features)
-  let x = @lib.from_array(
-    [0.0, 0.0,
-     0.0, 1.0,
-     1.0, 0.0,
-     1.0, 1.0],
-    [4, 2]
-  )
+  let x = @lib.from_array([0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0], [4, 2])
   // XOR targets (4 samples, 1 target)
-  let y = @lib.from_array(
-    [0.0,
-     1.0,
-     1.0,
-     0.0],
-    [4, 1]
-  )
+  let y = @lib.from_array([0.0, 1.0, 1.0, 0.0], [4, 1])
 
   // Network layers (2 -> 4 -> 1)
   let fc1 = @lib.Linear::new(2, 4, requires_grad=true)

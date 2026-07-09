@@ -1,5 +1,5 @@
 import {
-  "lyjttio/moongrad" @lib
+  "lyjttio/moongrad" @lib,
 }
 
 options(

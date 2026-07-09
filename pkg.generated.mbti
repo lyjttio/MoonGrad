@@ -1,0 +1,90 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lyjttio/moongrad"
+
+// Values
+pub fn accumulate_grad(Tensor, Array[Double], Array[Int]) -> Unit
+
+pub fn broadcast_index(Int, Array[Int], Array[Int], Array[Int], Array[Int]) -> Int
+
+pub fn broadcast_shapes(Array[Int], Array[Int]) -> Array[Int]?
+
+pub fn exp(Double) -> Double
+
+pub fn from_array(Array[Double], Array[Int], requires_grad? : Bool) -> Tensor
+
+pub fn ln(Double) -> Double
+
+pub fn mse_loss(Tensor, Tensor) -> Tensor
+
+pub fn ones(Array[Int], requires_grad? : Bool) -> Tensor
+
+pub fn randn(Array[Int], seed? : Int, requires_grad? : Bool) -> Tensor
+
+pub fn shape_to_strides(Array[Int]) -> Array[Int]
+
+pub fn zeros(Array[Int], requires_grad? : Bool) -> Tensor
+
+// Errors
+
+// Types and methods
+pub struct Linear {
+  weight : Tensor
+  bias : Tensor?
+}
+pub fn Linear::forward(Self, Tensor) -> Tensor
+pub fn Linear::new(Int, Int, requires_grad? : Bool) -> Self
+pub fn Linear::parameters(Self) -> Array[Tensor]
+
+pub enum Op {
+  Add(Tensor, Tensor)
+  Sub(Tensor, Tensor)
+  Mul(Tensor, Tensor)
+  Div(Tensor, Tensor)
+  MatMul(Tensor, Tensor)
+  Reshape(Tensor, Array[Int])
+  Transpose(Tensor, Int, Int)
+  ReLU(Tensor)
+  Sigmoid(Tensor)
+  Tanh(Tensor)
+  MSELoss(Tensor, Tensor)
+}
+
+pub struct SGD {
+  params : Array[Tensor]
+  lr : Double
+}
+pub fn SGD::new(Array[Tensor], Double) -> Self
+pub fn SGD::step(Self) -> Unit
+pub fn SGD::zero_grad(Self) -> Unit
+
+pub struct Tensor {
+  id : Int
+  shape : Array[Int]
+  strides : Array[Int]
+  data : Array[Double]
+  mut grad : Array[Double]?
+  requires_grad : Bool
+  mut creator : Op?
+}
+pub fn Tensor::backward(Self) -> Unit
+pub fn Tensor::matmul(Self, Self) -> Self
+pub fn Tensor::new(Array[Double], Array[Int], requires_grad? : Bool) -> Self
+pub fn Tensor::op_get(Self, Array[Int]) -> Double
+pub fn Tensor::op_set(Self, Array[Int], Double) -> Unit
+pub fn Tensor::output(Self, &Logger) -> Unit
+pub fn Tensor::relu(Self) -> Self
+pub fn Tensor::reshape(Self, Array[Int]) -> Self
+pub fn Tensor::sigmoid(Self) -> Self
+pub fn Tensor::t(Self) -> Self
+pub fn Tensor::tanh(Self) -> Self
+pub fn Tensor::to_string(Self) -> String
+pub fn Tensor::transpose(Self, Int, Int) -> Self
+pub impl Add for Tensor
+pub impl Div for Tensor
+pub impl Mul for Tensor
+pub impl Sub for Tensor
+
+// Type aliases
+
+// Traits
+
