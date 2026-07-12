@@ -1,6 +1,7 @@
 // tensor.mbt
 
 // Global tensor ID counter to identify tensors in the computation graph
+
 ///|
 let next_tensor_id : Ref[Int] = { val: 0 }
 

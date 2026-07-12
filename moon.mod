@@ -15,7 +15,7 @@ version = "0.1.0"
 
 readme = "README.md"
 
-repository = ""
+repository = "https://github.com/lyjttio/MoonGrad"
 
 license = "Apache-2.0"
 
@@ -23,4 +23,4 @@ keywords = [ ]
 
 preferred_target = "wasm-gc"
 
-description = ""
+description = "A lightweight, pure-MoonBit tensor computation and automatic differentiation (Autograd) library."

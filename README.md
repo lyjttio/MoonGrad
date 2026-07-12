@@ -51,6 +51,12 @@ Input: [1, 1] -> Output: 0.027983 (Target: 0.0)
 ==================================================
 ```
 
+### 🏆 CCF OSC 2026 大赛说明与开源参考
+
+本项目已提交参加 **2026 MoonBit 国产基础软件开源生态大赛**（CCF OSC 2026）。
+- **移植与设计参考**：本项目的自动微分（Autograd）引擎设计参考了 PyTorch 的动态计算图（Dynamic Computation Graph）和 PyTorch/micrograd 自动微分的拓扑排序反向传播机制。本项目在移植与重新实现时，针对 MoonBit 的强类型系统、代数数据类型（Enum）与模式匹配进行了原生重构与精简设计。
+- **原创声明**：本项目代码为 100% 纯 MoonBit 实现，没有任何外部 C FFI 依赖，支持编译至 Wasm、JS 和 Native 目标。
+
 ---
 
 ## English
@@ -78,6 +84,12 @@ Run the built-in XOR MLP training program out-of-the-box:
 # Run the demo on the JS target
 moon run cmd/main --target js
 ```
+
+### 🏆 CCF OSC 2026 & Open Source Reference
+
+This project is submitted to the **2026 MoonBit Open Source Ecosystem Competition** (CCF OSC 2026).
+- **Design & Porting Reference**: The design of MoonGrad's autograd engine is inspired by PyTorch's dynamic computation graph and the topological sorting-based backpropagation in micrograd/PyTorch. We adapted and simplified the architecture natively using MoonBit's robust type system, algebraic data types (Enums), and pattern matching.
+- **Originality**: The entire library is written in 100% pure MoonBit with zero external C FFI dependencies, fully compatible with WebAssembly, JavaScript, and Native backends.
 
 ---
 
