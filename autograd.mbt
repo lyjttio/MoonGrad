@@ -10,6 +10,8 @@ pub enum Op {
   MatMul(Tensor, Tensor)
   Reshape(Tensor, Array[Int])
   Transpose(Tensor, Int, Int)
+  Slice(Tensor, Int, Int, Int)
+  SliceMulti(Tensor, Array[(Int, Int)])
   ReLU(Tensor)
   Sigmoid(Tensor)
   Tanh(Tensor)
@@ -27,6 +29,8 @@ fn get_op_inputs(op : Op) -> Array[Tensor] {
     MatMul(a, b) => [a, b]
     Reshape(a, _) => [a]
     Transpose(a, _, _) => [a]
+    Slice(a, _, _, _) => [a]
+    SliceMulti(a, _) => [a]
     ReLU(a) => [a]
     Sigmoid(a) => [a]
     Tanh(a) => [a]
@@ -95,6 +99,27 @@ fn reduce_grad(
     target_grad[idx] = target_grad[idx] + delta[i]
   }
   target_grad
+}
+
+///|
+/// Direct gradient accumulation without shape reduction.
+pub fn accumulate_grad_direct(t : Tensor, delta : Array[Double]) -> Unit {
+  if !t.requires_grad {
+    return
+  }
+  match t.grad {
+    None => {
+      let g = Array::make(t.data.length(), 0.0)
+      for i in 0..<delta.length() {
+        g[i] = delta[i]
+      }
+      t.grad = Some(g)
+    }
+    Some(g) =>
+      for i in 0..<delta.length() {
+        g[i] = g[i] + delta[i]
+      }
+  }
 }
 
 ///|
@@ -253,37 +278,80 @@ fn propagate_op_grad(
         accumulate_grad(b, grad_b, b.shape)
       }
     }
-    Reshape(a, _) => accumulate_grad(a, grad, a.shape)
+    Reshape(a, _) => accumulate_grad_direct(a, grad)
     Transpose(a, dim0, dim1) =>
       if a.requires_grad {
         let size = grad.length()
-        let grad_a = Array::make(size, 0.0)
+        let grad_a = Array::make(a.data.length(), 0.0)
         let len = a.shape.length()
-        let a_strides = a.strides
-        let new_strides = shape_to_strides(out_shape)
+        let out_strides = shape_to_strides(out_shape)
 
         for i in 0..<size {
           let mut remaining = i
-          let coords = Array::make(len, 0)
+          let out_coords = Array::make(len, 0)
           for d in 0..<len {
-            coords[d] = remaining / a_strides[d]
-            remaining = remaining % a_strides[d]
+            out_coords[d] = remaining / out_strides[d]
+            remaining = remaining % out_strides[d]
           }
 
-          let mut trans_idx = 0
+          let in_coords = Array::make(len, 0)
           for k in 0..<len {
-            let coord = if k == dim0 {
-              coords[dim1]
+            if k == dim0 {
+              in_coords[k] = out_coords[dim1]
             } else if k == dim1 {
-              coords[dim0]
+              in_coords[k] = out_coords[dim0]
             } else {
-              coords[k]
+              in_coords[k] = out_coords[k]
             }
-            trans_idx = trans_idx + coord * new_strides[k]
           }
-          grad_a[i] = grad[trans_idx]
+
+          let mut flat_in_idx = 0
+          for k in 0..<len {
+            flat_in_idx = flat_in_idx + in_coords[k] * a.strides[k]
+          }
+          grad_a[flat_in_idx] = grad_a[flat_in_idx] + grad[i]
         }
-        accumulate_grad(a, grad_a, a.shape)
+        accumulate_grad_direct(a, grad_a)
+      }
+    Slice(a, dim, start, _) =>
+      if a.requires_grad {
+        let size = grad.length()
+        let grad_a = Array::make(a.data.length(), 0.0)
+        let len = a.shape.length()
+        let out_strides = shape_to_strides(out_shape)
+
+        for i in 0..<size {
+          let mut remaining = i
+          let mut flat_in_idx = 0
+          for k in 0..<len {
+            let coord = remaining / out_strides[k]
+            remaining = remaining % out_strides[k]
+            let in_coord = if k == dim { coord + start } else { coord }
+            flat_in_idx = flat_in_idx + in_coord * a.strides[k]
+          }
+          grad_a[flat_in_idx] = grad_a[flat_in_idx] + grad[i]
+        }
+        accumulate_grad_direct(a, grad_a)
+      }
+    SliceMulti(a, ranges) =>
+      if a.requires_grad {
+        let size = grad.length()
+        let grad_a = Array::make(a.data.length(), 0.0)
+        let len = a.shape.length()
+        let out_strides = shape_to_strides(out_shape)
+
+        for i in 0..<size {
+          let mut remaining = i
+          let mut flat_in_idx = 0
+          for k in 0..<len {
+            let coord = remaining / out_strides[k]
+            remaining = remaining % out_strides[k]
+            let in_coord = coord + ranges[k].0
+            flat_in_idx = flat_in_idx + in_coord * a.strides[k]
+          }
+          grad_a[flat_in_idx] = grad_a[flat_in_idx] + grad[i]
+        }
+        accumulate_grad_direct(a, grad_a)
       }
     ReLU(a) =>
       if a.requires_grad {

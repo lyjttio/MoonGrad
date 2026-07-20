@@ -98,6 +98,11 @@ jobs:
       - name: moon check
         run: moon check --deny-warn
 
+      - name: moon build
+        run: |
+          moon build --deny-warn
+          moon build --deny-warn --target native
+
       - name: moon fmt --deny-warn
         run: moon fmt --deny-warn
 

@@ -4,6 +4,8 @@ package "lyjttio/moongrad"
 // Values
 pub fn accumulate_grad(Tensor, Array[Double], Array[Int]) -> Unit
 
+pub fn accumulate_grad_direct(Tensor, Array[Double]) -> Unit
+
 pub fn broadcast_index(Int, Array[Int], Array[Int], Array[Int], Array[Int]) -> Int
 
 pub fn broadcast_shapes(Array[Int], Array[Int]) -> Array[Int]?
@@ -43,6 +45,8 @@ pub enum Op {
   MatMul(Tensor, Tensor)
   Reshape(Tensor, Array[Int])
   Transpose(Tensor, Int, Int)
+  Slice(Tensor, Int, Int, Int)
+  SliceMulti(Tensor, Array[(Int, Int)])
   ReLU(Tensor)
   Sigmoid(Tensor)
   Tanh(Tensor)
@@ -75,6 +79,8 @@ pub fn Tensor::output(Self, &Logger) -> Unit
 pub fn Tensor::relu(Self) -> Self
 pub fn Tensor::reshape(Self, Array[Int]) -> Self
 pub fn Tensor::sigmoid(Self) -> Self
+pub fn Tensor::slice(Self, Int, Int, Int) -> Self
+pub fn Tensor::slice_multi(Self, Array[(Int, Int)]) -> Self
 pub fn Tensor::t(Self) -> Self
 pub fn Tensor::tanh(Self) -> Self
 pub fn Tensor::to_string(Self) -> String

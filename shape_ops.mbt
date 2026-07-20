@@ -21,23 +21,120 @@ pub fn Tensor::reshape(self : Tensor, new_shape : Array[Int]) -> Tensor {
     panic()
   }
 
+  let self_strides = shape_to_strides(self.shape)
   let data = Array::make(old_size, 0.0)
-  let out_strides = shape_to_strides(new_shape)
   for i in 0..<old_size {
-    let idx = broadcast_index(
-      i,
-      new_shape,
-      out_strides,
-      self.shape,
-      self.strides,
-    )
-    data[i] = self.data[idx]
+    let mut remaining = i
+    let mut flat_idx = 0
+    for k in 0..<self.shape.length() {
+      let coord = remaining / self_strides[k]
+      remaining = remaining % self_strides[k]
+      flat_idx = flat_idx + coord * self.strides[k]
+    }
+    data[i] = self.data[flat_idx]
   }
 
   let req_grad = self.requires_grad
   let out = Tensor::new(data, new_shape, requires_grad=req_grad)
   if req_grad {
     out.creator = Some(Reshape(self, new_shape))
+  }
+  out
+}
+
+///|
+/// Slice a Tensor along a single dimension from start (inclusive) to end_idx (exclusive).
+pub fn Tensor::slice(
+  self : Tensor,
+  dim : Int,
+  start : Int,
+  end_idx : Int,
+) -> Tensor {
+  let len = self.shape.length()
+  if dim < 0 || dim >= len {
+    panic()
+  }
+  let dim_size = self.shape[dim]
+  if start < 0 || start > end_idx || end_idx > dim_size {
+    panic()
+  }
+
+  let new_shape = self.shape.copy()
+  new_shape[dim] = end_idx - start
+
+  let out_strides = shape_to_strides(new_shape)
+  let mut out_size = 1
+  for d in new_shape {
+    out_size = out_size * d
+  }
+  if new_shape.length() == 0 {
+    out_size = 1
+  }
+
+  let data = Array::make(out_size, 0.0)
+  for i in 0..<out_size {
+    let mut remaining = i
+    let mut flat_in_idx = 0
+    for k in 0..<len {
+      let coord = remaining / out_strides[k]
+      remaining = remaining % out_strides[k]
+      let in_coord = if k == dim { coord + start } else { coord }
+      flat_in_idx = flat_in_idx + in_coord * self.strides[k]
+    }
+    data[i] = self.data[flat_in_idx]
+  }
+
+  let req_grad = self.requires_grad
+  let out = Tensor::new(data, new_shape, requires_grad=req_grad)
+  if req_grad {
+    out.creator = Some(Slice(self, dim, start, end_idx))
+  }
+  out
+}
+
+///|
+/// Slice a Tensor across multiple dimensions specified by (start, end_idx) tuples.
+pub fn Tensor::slice_multi(self : Tensor, ranges : Array[(Int, Int)]) -> Tensor {
+  let len = self.shape.length()
+  if ranges.length() != len {
+    panic()
+  }
+
+  let new_shape = Array::make(len, 0)
+  for k in 0..<len {
+    let (s, e) = ranges[k]
+    if s < 0 || s > e || e > self.shape[k] {
+      panic()
+    }
+    new_shape[k] = e - s
+  }
+
+  let out_strides = shape_to_strides(new_shape)
+  let mut out_size = 1
+  for d in new_shape {
+    out_size = out_size * d
+  }
+  if new_shape.length() == 0 {
+    out_size = 1
+  }
+
+  let data = Array::make(out_size, 0.0)
+  for i in 0..<out_size {
+    let mut remaining = i
+    let mut flat_in_idx = 0
+    for k in 0..<len {
+      let coord = remaining / out_strides[k]
+      remaining = remaining % out_strides[k]
+      let in_coord = coord + ranges[k].0
+      flat_in_idx = flat_in_idx + in_coord * self.strides[k]
+    }
+    data[i] = self.data[flat_in_idx]
+  }
+
+  let req_grad = self.requires_grad
+  let out = Tensor::new(data, new_shape, requires_grad=req_grad)
+  if req_grad {
+    out.creator = Some(SliceMulti(self, ranges))
   }
   out
 }
